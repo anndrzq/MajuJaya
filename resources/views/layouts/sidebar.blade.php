@@ -86,12 +86,12 @@
                     </a>
                 </li>
 
-                {{-- <li class="nav-item">
+                <li class="nav-item">
                     <a class="nav-link menu-link {{ Request::is('transaction-history*') ? 'active' : '' }}"
-                        href="#">
-                        <i class="ri-history-line"></i> <span data-key="t-history">Riwayat Transaksi</span>
+                        href="{{ route('transaction.history') }}">
+                        <i class="ri-history-line"></i> <span data-key="t-history">Riwayat Suluruh Transaksi</span>
                     </a>
-                </li> --}}
+                </li>
             </ul>
         </div>
     </div>

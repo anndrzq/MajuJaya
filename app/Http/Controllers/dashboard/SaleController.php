@@ -22,55 +22,52 @@ class SaleController extends Controller
     public function store(Request $request)
     {
         if (!Auth::check()) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Sesi Anda telah habis. Silakan login kembali.'
-            ], 401);
+            return response()->json(['status' => 'error', 'message' => 'Sesi habis.'], 401);
         }
 
-        $rawPay = str_replace(['Rp', '.', ' ', ',-'], '', $request->pay_amount);
-        $rawTotal = str_replace(['Rp', '.', ' ', ',-'], '', $request->total_price);
+        $rawPay = preg_replace('/[^0-9]/', '', $request->pay_amount);
+        $rawTotal = preg_replace('/[^0-9]/', '', $request->total_price);
 
         $request->merge([
-            'pay_amount' => $rawPay,
-            'total_price' => $rawTotal,
+            'pay_amount' => (float)$rawPay,
+            'total_price' => (float)$rawTotal,
         ]);
 
         $request->validate([
             'KdProduct' => 'required|array',
             'qty' => 'required|array',
-            'pay_amount' => 'required|numeric',
+            'pay_amount' => 'required|numeric|min:0',
+            'total_price' => 'required|numeric|min:1',
         ]);
 
         try {
             DB::beginTransaction();
 
-            $totalPrice = (float) $request->total_price;
-            $payAmount = (float) $request->pay_amount;
-
-            if ($payAmount < $totalPrice) {
+            if ($request->pay_amount < $request->total_price) {
                 throw new \Exception("Pembayaran kurang!");
             }
 
             $sale = Sale::create([
+                'id' => (string) Str::uuid(),
                 'invoice_number' => 'INV-' . strtoupper(Str::random(8)),
-                'total_price' => $totalPrice,
-                'pay_amount' => $payAmount,
-                'change_amount' => $payAmount - $totalPrice,
+                'total_price' => $request->total_price,
+                'pay_amount' => $request->pay_amount,
+                'change_amount' => $request->pay_amount - $request->total_price,
                 'user_id' => Auth::id()
             ]);
 
             foreach ($request->KdProduct as $index => $kdProduct) {
-                $qty = $request->qty[$index];
+                $qty = (int)$request->qty[$index];
                 if ($qty <= 0) continue;
 
-                $product = Product::where('KdProduct', $kdProduct)->firstOrFail();
+                $product = Product::where('KdProduct', $kdProduct)->lockForUpdate()->firstOrFail();
 
                 if ($product->stock < $qty) {
-                    throw new \Exception("Stok produk {$product->name} tidak mencukupi.");
+                    throw new \Exception("Stok {$product->name} tidak mencukupi.");
                 }
 
                 SaleDetail::create([
+                    'id' => (string) Str::uuid(),
                     'sale_id' => $sale->id,
                     'product_id' => $product->KdProduct,
                     'quantity' => $qty,
@@ -82,18 +79,11 @@ class SaleController extends Controller
             }
 
             DB::commit();
-
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Transaksi berhasil disimpan'
-            ]);
+            return response()->json(['status' => 'success', 'message' => 'Transaksi berhasil disimpan']);
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json([
-                'status' => 'error',
-                'message' => $e->getMessage()
-            ], 422);
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 422);
         }
     }
 }

@@ -113,6 +113,8 @@
     </script>
 @endpush
 
+@section('title', 'Data Produk')
+
 @section('content')
     <div class="row">
         <div class="col-lg-4">

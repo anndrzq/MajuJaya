@@ -11,7 +11,6 @@
 
     <script>
         $(document).ready(function() {
-
             function formatRupiah(angka) {
                 return new Intl.NumberFormat('id-ID', {
                     style: 'currency',
@@ -21,7 +20,8 @@
             }
 
             function parseNumber(str) {
-                return parseFloat(str.replace(/[^\d]/g, "")) || 0;
+                if (!str) return 0;
+                return parseFloat(str.replace(/[^0-9]/g, "")) || 0;
             }
 
             function initSelect2() {
@@ -49,9 +49,9 @@
                         let optionValue = $(this).val();
                         if (optionValue !== "" && selectedValues.includes(optionValue) &&
                             optionValue !== currentValue) {
-                            $(this).prop('disabled', true).css('color', '#ccc');
+                            $(this).prop('disabled', true);
                         } else {
-                            $(this).prop('disabled', false).css('color', '');
+                            $(this).prop('disabled', false);
                         }
                     });
                 });
@@ -59,25 +59,26 @@
 
             $(document).on('change', '.selectProduct, .qty', function() {
                 let row = $(this).closest('tr');
-
                 if ($(this).hasClass('selectProduct')) {
                     updateProductOptions();
                 }
 
                 let option = row.find('.selectProduct option:selected');
                 let price = parseFloat(option.data('price')) || 0;
-                let qty = parseInt(row.find('.qty').val()) || 0;
                 let stock = parseInt(option.data('stock')) || 0;
+                let qtyInput = row.find('.qty');
+                let qty = parseInt(qtyInput.val()) || 0;
 
                 if (qty > stock) {
                     Swal.fire('Stok Kurang', 'Sisa stok: ' + stock, 'warning');
-                    row.find('.qty').val(stock);
+                    qtyInput.val(stock);
                     qty = stock;
                 }
 
                 let subtotal = price * qty;
-                row.find('.price').val(formatRupiah(price));
-                row.find('.subtotal').val(formatRupiah(subtotal));
+                row.find('.price_display').val(formatRupiah(price));
+                row.find('.subtotal_display').val(formatRupiah(subtotal));
+                row.find('.subtotal_raw').val(subtotal);
                 calculateTotal();
             });
 
@@ -87,10 +88,8 @@
                 row.find('.qty').val(1);
                 row.find('button').removeClass('btn-primary').addClass('btn-danger').text('x').removeClass(
                     'addRow').addClass('removeRow');
-
-                row.find('.selectProduct').next('.select2-container').remove();
+                row.find('.select2-container').remove();
                 row.find('.selectProduct').val('').prop('disabled', false);
-
                 $('#productTable tbody').append(row);
                 initSelect2();
                 updateProductOptions();
@@ -104,18 +103,25 @@
 
             function calculateTotal() {
                 let total = 0;
-                $('.subtotal').each(function() {
-                    total += parseNumber($(this).val());
+                $('.subtotal_raw').each(function() {
+                    total += parseFloat($(this).val()) || 0;
                 });
-                $('#total_price').val(formatRupiah(total));
+                $('#total_price_display').val(formatRupiah(total));
+                $('#total_price_raw').val(total);
+                updateChange();
+            }
+
+            function updateChange() {
+                let pay = parseNumber($('#pay_amount').val());
+                let total = parseFloat($('#total_price_raw').val()) || 0;
+                let change = pay - total;
+                $('#change_amount_display').val(formatRupiah(change > 0 ? change : 0));
             }
 
             $('#pay_amount').on('keyup', function() {
                 let pay = parseNumber($(this).val());
                 $(this).val(formatRupiah(pay));
-                let total = parseNumber($('#total_price').val());
-                let change = pay - total;
-                $('#change_amount').val(formatRupiah(change > 0 ? change : 0));
+                updateChange();
             });
 
             $('#cashierForm').on('submit', function(e) {
@@ -123,23 +129,15 @@
                 let btn = $('#btnSubmit');
                 btn.prop('disabled', true).text('Memproses...');
 
-                let formData = $(this).serializeArray();
-                formData.forEach(function(item) {
-                    if (item.name === 'pay_amount' || item.name === 'total_price') {
-                        item.value = parseNumber(item.value);
-                    }
-                });
-
                 $.ajax({
                     url: "{{ route('sale.store') }}",
                     method: "POST",
-                    data: $.param(formData),
+                    data: $(this).serialize(),
                     success: function(response) {
                         Swal.fire({
                             icon: 'success',
                             title: 'Berhasil!',
-                            text: response.message,
-                            showConfirmButton: true
+                            text: response.message
                         }).then(() => {
                             location.reload();
                         });
@@ -151,7 +149,7 @@
                             icon: 'error',
                             title: 'Gagal!',
                             text: err && err.message ? err.message :
-                                'Terjadi kesalahan sistem.'
+                                'Terjadi kesalahan.'
                         });
                     }
                 });
@@ -159,6 +157,8 @@
         });
     </script>
 @endpush
+
+@section('title', 'Transaksi')
 
 @section('content')
     <div class="page-content">
@@ -189,15 +189,18 @@
                                                 @foreach ($products as $p)
                                                     <option value="{{ $p->KdProduct }}" data-price="{{ $p->price }}"
                                                         data-stock="{{ $p->stock }}">
-                                                        {{ $p->name }}
+                                                        {{ $p->name }} (Stok: {{ $p->stock }})
                                                     </option>
                                                 @endforeach
                                             </select>
                                         </td>
-                                        <td><input type="text" class="form-control price" disabled></td>
+                                        <td><input type="text" class="form-control price_display" readonly></td>
                                         <td><input type="number" name="qty[]" class="form-control qty" value="1"
                                                 min="1"></td>
-                                        <td><input type="text" class="form-control subtotal" disabled></td>
+                                        <td>
+                                            <input type="text" class="form-control subtotal_display" readonly>
+                                            <input type="hidden" class="subtotal_raw">
+                                        </td>
                                         <td><button type="button" class="btn btn-primary addRow">+</button></td>
                                     </tr>
                                 </tbody>
@@ -208,15 +211,16 @@
                             <div class="col-md-4 offset-md-8">
                                 <div class="mb-2">
                                     <label>Total Harga</label>
-                                    <input type="text" id="total_price" class="form-control" disabled>
+                                    <input type="text" id="total_price_display" class="form-control" readonly>
+                                    <input type="hidden" name="total_price" id="total_price_raw">
                                 </div>
                                 <div class="mb-2">
                                     <label>Bayar</label>
-                                    <input type="text" name="pay_amount" id="pay_amount" class="form-control">
+                                    <input type="text" name="pay_amount" id="pay_amount" class="form-control" required>
                                 </div>
                                 <div class="mb-2">
                                     <label>Kembalian</label>
-                                    <input type="text" id="change_amount" class="form-control" disabled
+                                    <input type="text" id="change_amount_display" class="form-control" readonly
                                         style="background-color: #f8f9fa;">
                                 </div>
                                 <button type="submit" id="btnSubmit" class="btn btn-success w-100">Simpan
