@@ -56,10 +56,11 @@
             <ul class="navbar-nav" id="navbar-nav">
                 <li class="menu-title"><span data-key="t-menu">Menu</span></li>
                 <li class="nav-item">
-                    <a class="nav-link menu-link {{ Request::is('Dashboard.index') ? 'active' : '' }}"
+                    <a class="nav-link menu-link {{ Request::is('dashboard*') ? 'active' : '' }}"
                         href="{{ route('Dashboard.index') }}">
                         <i class="ri-dashboard-2-line"></i> <span data-key="t-widgets">Dashboard</span>
                     </a>
+
                 </li>
 
                 <li class="menu-title"><i class="ri-more-fill"></i> <span data-key="t-pages">Data Master</span>

@@ -13,9 +13,7 @@ class LoginController extends Controller
     {
         return view('content.auth.index');
     }
-    /**
-     * Handle an authentication attempt.
-     */
+
     public function authenticate(Request $request): RedirectResponse
     {
         $credentials = $request->validate([
@@ -29,13 +27,13 @@ class LoginController extends Controller
         if (Auth::attempt($credentials, $remember)) {
             $request->session()->regenerate();
 
-            return redirect('userData');
+            return redirect('dashboard');
         }
 
         if (Auth::viaRemember()) {
-            return redirect('userData');
+            return redirect('dashboard');
         }
 
-        return back()->with('error', 'The provided credentials do not match our records.');
+        return back()->with('error', 'Silakan Periksa Kembali Email dan Password Anda.');
     }
 }
