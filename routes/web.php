@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\dashboard\SaleController;
 use App\Http\Controllers\dashboard\UserDataController;
+use App\Http\Controllers\dashboard\DashboardController;
 use App\Http\Controllers\dashboard\ProductDataController;
 use App\Http\Controllers\dashboard\TransactionController;
 
@@ -25,7 +26,7 @@ Route::post('/', [LoginController::class, 'authenticate'])->name('login')->middl
 Route::get('/logout', [LogoutController::class, 'logout'])->name('logout')->middleware('auth');
 
 Route::middleware(['auth'])->group(function () {
-    Route::view('/dashboard-ecommerce', 'menu.dashboards.dashboard-ecommerce')->middleware('auth')->name('Dashboard.index');
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('Dashboard.index');
 
     Route::get('/userData', [UserDataController::class, 'index'])->name('userData.index');
     Route::post('/userData-store', [UserDataController::class, 'store'])->name('userData.store');
